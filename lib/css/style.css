@@ -10,11 +10,8 @@
     float: left;
 }
 
-.knots-picker {
-    width: 120px;
-}
 .knots-input {
-    width: 25px;
+    width: 25%;
 }
 
 .footer {

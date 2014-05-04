@@ -20,6 +20,14 @@ chebi.controller('InputController', ['$scope', function ($scope) {
         return x * x;
     }
 
+    function absoluteValue(x) {
+        return x > 0 ? x : -x
+    }
+
+    function squareInverse(x) {
+        return 1 / (25 * x * x + 1);
+    }
+
     $scope.input = {
         numberOfKnots: 10,
         degree: 2,
@@ -28,7 +36,9 @@ chebi.controller('InputController', ['$scope', function ($scope) {
             {name: 'step function', impl: Math.floor},
             {name: 'third deg. function', impl: thirdDegreeFunction},
             {name: 'signum', impl: signum},
-            {name: 'sinus', impl: Math.sin}
+            {name: 'sinus', impl: Math.sin},
+            {name: 'absolute value', impl: absoluteValue},
+            {name: 'inverse of square function', impl: squareInverse}
         ],
         baseFunction: {name: 'step function', impl: Math.floor},
         leftInterval: -10,
@@ -63,10 +73,6 @@ chebi.controller('InputController', ['$scope', function ($scope) {
         $scope.input.baseFunction = baseFun;
     };
 
-    var intervalWidth = function () {
-        return $scope.input.rightInterval - $scope.input.leftInterval;
-    };
-
     var valuePolynomialsChebyshev = function (degree, x) {
         if (degree === 0) {
             return 1;
@@ -78,9 +84,9 @@ chebi.controller('InputController', ['$scope', function ($scope) {
     };
 
     var computeValuesOfBaseFunction = function (arrayOfKnots, fun) {
-        var result = [];
+        var result = new Array(arrayOfKnots.length);
         for (var i = 0; i < arrayOfKnots.length; i++) {
-            result.push(fun(arrayOfKnots[i]));
+            result[i] = fun(arrayOfKnots[i]);
         }
         return result;
     };
@@ -93,6 +99,14 @@ chebi.controller('InputController', ['$scope', function ($scope) {
         var result = [];
         for (var i = 1; i <= numberOfPoints; i++) {
             result.push(computeZeroPoint(numberOfPoints, i));
+        }
+        return result;
+    };
+
+    var adjustNodesToInterval = function (zeros, left, right) {
+        var result = new Array(zeros.length);
+        for (var i = 0; i < zeros.length; i++) {
+            result[i] = (zeros[i] + 1) * (right - left) / 2 + left;
         }
         return result;
     };
@@ -118,14 +132,15 @@ chebi.controller('InputController', ['$scope', function ($scope) {
     var computeApproxFunctionValue = function (degree, x, arrayOfCoefficients) {
         var value = 0;
         for (var i = 0; i <= degree; i++) {
-            value += arrayOfCoefficients[i] * valuePolynomialsChebyshev(i, x);
+            value += arrayOfCoefficients[i] * valuePolynomialsChebyshev(i,
+                (2 * (x - $scope.input.leftInterval) / ($scope.input.rightInterval - $scope.input.leftInterval) - 1));
         }
         return value;
     };
 
     var createArrayForD3 = function (degree, arrayOfCoefficients) {
         var array = [];
-        for (var i = -1; i < 1; i += 0.1) {
+        for (var i = $scope.input.leftInterval; i < $scope.input.rightInterval; i += 0.1) {
             array.push({x: i, y: computeApproxFunctionValue(degree, i, arrayOfCoefficients)});
         }
 
@@ -138,9 +153,10 @@ chebi.controller('InputController', ['$scope', function ($scope) {
     };
 
     var doTheApproximation = function (numberOfPoints, degree) {
-        var zeroPoints = computeArrayOfZeroPoints(numberOfPoints);
+        var baseIntervalZeroPoints = computeArrayOfZeroPoints(numberOfPoints);
+        var zeroPoints = adjustNodesToInterval(baseIntervalZeroPoints, $scope.input.leftInterval, $scope.input.rightInterval);
         var baseFunPoints = computeValuesOfBaseFunction(zeroPoints, functionToApprox);
-        var coefficientsArray = computeChebyshevCoefficients(degree, numberOfPoints, zeroPoints, baseFunPoints);
+        var coefficientsArray = computeChebyshevCoefficients(degree, numberOfPoints, baseIntervalZeroPoints, baseFunPoints);
 
         return createArrayForD3(degree, coefficientsArray);
     };
@@ -234,7 +250,7 @@ chebi.controller('InputController', ['$scope', function ($scope) {
         var baseFunction = [];
 
         //Data is represented as an array of {x,y} pairs.
-        for (var i = -0.9; i < 0.9; i += 0.1) {
+        for (var i = $scope.input.leftInterval; i < $scope.input.rightInterval; i += 0.1) {
             baseFunction.push({x: i, y: $scope.input.baseFunction.impl(i)});
         }
         var arrayD3 = doTheApproximation($scope.input.numberOfKnots, $scope.input.degree);
